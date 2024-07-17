@@ -24,6 +24,7 @@ const Date = struct {
 
         const UTC = Timezone{ .name = "UTC", .offset_minutes = 0 };
 
+        /// Fetches the system timezone on Linux using the `date` binary.
         fn fetch(allocator: std.mem.Allocator) !Timezone {
             const result = try std.process.Child.run(.{
                 .allocator = allocator,
@@ -56,12 +57,14 @@ const Date = struct {
             };
         }
 
+        /// Deallocates the timezone when initialized with an allocator.
         fn deinit(self: Timezone) void {
             if (self.allocator) |allocator| {
                 allocator.free(self.name);
             }
         }
 
+        /// Renders the timezone in ISO-8601 format, eg. +04:00
         fn write(self: Timezone, writer: anytype) !void {
             const sign = if (self.offset_minutes < 0) "-" else "+";
             const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
@@ -70,6 +73,7 @@ const Date = struct {
             return std.fmt.format(writer, "{}{:02}:{:02}", .{ sign, hours, minutes });
         }
 
+        /// Prints the timezone in ISO-8601 format into `buf`, eg. +04:00
         fn bufPrint(self: Timezone, buf: []u8) ![]u8 {
             var fbs = std.io.fixedBufferStream(buf);
             self.write(fbs.writer().any()) catch |err| switch (err) {
@@ -79,6 +83,7 @@ const Date = struct {
             return fbs.getWritten();
         }
 
+        /// Returns a buffer allocated using `allocator` filled with the timezone in ISO-8601 format, eg. +04:00
         fn allocPrint(self: Timezone, allocator: std.mem.Allocator) ![]const u8 {
             const sign = if (self.offset_minutes < 0) "-" else "+";
             const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
@@ -88,6 +93,7 @@ const Date = struct {
         }
     };
 
+    /// Creates a Date from a Unix timestamp in seconds since midnight Jan 1 1970.
     fn fromTimestamp(timestamp: u64, timezone: Timezone) Date {
         const offset_ms = timezone.offset_minutes * 60 * 1_000;
         var offset_timestamp: u64 = undefined;
@@ -151,15 +157,18 @@ const Date = struct {
         };
     }
 
+    /// Creates a Date representing the current date and time in UTC timezone.
     fn now() Date {
         return Date.nowWithTimezone(Timezone.UTC);
     }
 
+    /// Creates a Date representing the current date and time in the provided timezone.
     fn nowWithTimezone(timezone: Timezone) Date {
         const current_ms: u64 = @intCast(std.time.milliTimestamp());
         return Date.fromTimestamp(current_ms, timezone);
     }
 
+    /// Renders the date and time in Java Date.toString format, eg. Thu Jul 18 12:43:25 AM EST 2024
     fn writeJava(self: Date, writer: anytype) !void {
         const day_of_week_str = day_of_week_abbrev_names[self.day_of_week];
         const month_str = month_abbrev_names[self.month - 1]; // Note: self.month is 1-based
@@ -168,6 +177,7 @@ const Date = struct {
         return std.fmt.format(writer, "{s} {s} {d} {d:0>2}:{d:0>2}:{d:0>2} {s} {s} {d}", .{ day_of_week_str, month_str, self.day, hour_12, self.minutes, self.seconds, am_pm, self.timezone.name, self.year });
     }
 
+    /// Renders the date and time in ISO-8601 format, eg. 2023-10-05T15:30:00-05:00
     fn writeISO8601(self: Date, writer: anytype) !void {
         if (self.timezone.offset_minutes == 0) {
             return std.fmt.format(writer, "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}Z", .{ self.year, self.month, self.day, self.hour, self.minutes, self.seconds, self.milliseconds });
@@ -178,6 +188,7 @@ const Date = struct {
         }
     }
 
+    /// Renders the date and time in Javascript toLocaleString format, eg. 7/18/2024, 12:45:52 AM
     fn writeLocale(self: Date, writer: anytype) !void {
         const am_pm = if (self.hour < 12) "AM" else "PM";
         const hour_12 = if (self.hour % 12 == 0) 12 else self.hour % 12;
@@ -185,10 +196,13 @@ const Date = struct {
         return std.fmt.format(writer, "{d}/{d}/{d}, {d}:{d:0>2}:{d:0>2} {s}", .{ self.month, self.day, self.year, hour_12, self.minutes, self.seconds, am_pm });
     }
 
+    /// Renders the date in ISO-8601 format, eg. 2023-10-05
     fn writeDateISO8601(self: Date, writer: anytype) ![]u8 {
         return std.fmt.format(writer, "{d:0>4}-{d:0>2}-{d:0>2}", .{ self.year, self.month, self.day });
     }
 
+    /// Prints the date and time in Java Date.toString format into `buf`, eg. Thu Jul 18 12:43:25 AM EST 2024
+    /// Returns a slice of the bytes printed to.
     fn bufPrintJava(self: Date, buf: []u8) ![]u8 {
         var fbs = std.io.fixedBufferStream(buf);
         self.writeJava(fbs.writer().any()) catch |err| switch (err) {
@@ -198,6 +212,8 @@ const Date = struct {
         return fbs.getWritten();
     }
 
+    /// Prints the date and time in ISO-8601 format into `buf`, eg. 2023-10-05T15:30:00-05:00
+    /// Returns a slice of the bytes printed to.
     fn bufPrintISO8601(self: Date, buf: []u8) ![]u8 {
         var fbs = std.io.fixedBufferStream(buf);
         self.writeISO8601(fbs.writer().any()) catch |err| switch (err) {
@@ -207,6 +223,8 @@ const Date = struct {
         return fbs.getWritten();
     }
 
+    /// Prints the date and time in Javascript toLocaleString format into `buf`, eg. 7/18/2024, 12:45:52 AM
+    /// Returns a slice of the bytes printed to.
     fn bufPrintLocale(self: Date, buf: []u8) ![]u8 {
         var fbs = std.io.fixedBufferStream(buf);
         self.writeLocale(fbs.writer().any()) catch |err| switch (err) {
@@ -216,6 +234,8 @@ const Date = struct {
         return fbs.getWritten();
     }
 
+    /// Prints the date in ISO-8601 format into `buf`, eg. 2023-10-05
+    /// Returns a slice of the bytes printed to.
     fn bufPrintDateISO8601(self: Date, buf: []u8) ![]u8 {
         var fbs = std.io.fixedBufferStream(buf);
         self.writeDateISO8601(fbs.writer().any()) catch |err| switch (err) {
@@ -225,7 +245,7 @@ const Date = struct {
         return fbs.getWritten();
     }
 
-    // Java Date toString format
+    /// Returns a buffer allocated using `allocator` filled with the date and time in Java Date.toString format, eg. Thu Jul 18 12:43:25 AM EST 2024
     fn allocPrintJava(self: Date, allocator: std.mem.Allocator) ![]u8 {
         const day_of_week_str = day_of_week_abbrev_names[self.day_of_week];
         const month_str = month_abbrev_names[self.month - 1]; // Note: self.month is 1-based
@@ -234,6 +254,7 @@ const Date = struct {
         return std.fmt.allocPrint(allocator, "{s} {s} {d} {d:0>2}:{d:0>2}:{d:0>2} {s} {s} {d}", .{ day_of_week_str, month_str, self.day, hour_12, self.minutes, self.seconds, am_pm, self.timezone.name, self.year });
     }
 
+    /// Returns a buffer allocated using `allocator` filled with the date and time in ISO-8601 format, eg. 2023-10-05T15:30:00-05:00
     fn allocPrintISO8601(self: Date, allocator: std.mem.Allocator) ![]u8 {
         if (self.timezone.offset_minutes == 0) {
             return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}Z", .{ self.year, self.month, self.day, self.hour, self.minutes, self.seconds, self.milliseconds });
@@ -244,6 +265,7 @@ const Date = struct {
         }
     }
 
+    /// Returns a buffer allocated using `allocator` filled with the date and time in Javascript toLocaleString format, eg. 7/18/2024, 12:45:52 AM
     fn allocPrintLocale(self: Date, allocator: std.mem.Allocator) ![]u8 {
         const am_pm = if (self.hour < 12) "AM" else "PM";
         const hour_12 = if (self.hour % 12 == 0) 12 else self.hour % 12;
@@ -251,6 +273,7 @@ const Date = struct {
         return std.fmt.allocPrint(allocator, "{d}/{d}/{d}, {d}:{d:0>2}:{d:0>2} {s}", .{ self.month, self.day, self.year, hour_12, self.minutes, self.seconds, am_pm });
     }
 
+    /// Returns a buffer allocated using `allocator` filled with the date in ISO-8601 format, eg. 2023-10-05
     fn allocPrintDateISO8601(self: Date, allocator: std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ self.year, self.month, self.day });
     }
