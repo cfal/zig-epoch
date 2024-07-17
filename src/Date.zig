@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Timezone = @import("./timezone.zig");
+const Timezone = @import("./Timezone.zig");
 
 const Date = @This();
 
