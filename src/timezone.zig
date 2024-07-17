@@ -1,15 +1,15 @@
 const std = @import("std");
 
-const Self = @This();
+const Timezone = @This();
 
 name: []const u8,
 offset_minutes: i64,
 allocator: ?std.mem.Allocator = undefined,
 
-const UTC = Self{ .name = "UTC", .offset_minutes = 0 };
+const UTC = Timezone{ .name = "UTC", .offset_minutes = 0 };
 
 /// Fetches the system timezone on Linux using the `date` binary.
-pub fn fetch(allocator: std.mem.Allocator) !Self {
+pub fn fetch(allocator: std.mem.Allocator) !Timezone {
     const result = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = &[_][]const u8{ "date", "+%z %Z" },
@@ -34,7 +34,7 @@ pub fn fetch(allocator: std.mem.Allocator) !Self {
     const hours = try std.fmt.parseInt(i16, offset_str[1..3], 10);
     const minutes = try std.fmt.parseInt(i16, offset_str[3..5], 10);
 
-    return Self{
+    return Timezone{
         .allocator = allocator,
         .name = try allocator.dupe(u8, timezone_str),
         .offset_minutes = (hours * 60 + minutes) * sign,
@@ -42,14 +42,14 @@ pub fn fetch(allocator: std.mem.Allocator) !Self {
 }
 
 /// Deallocates the timezone when initialized with an allocator.
-pub fn deinit(self: Self) void {
+pub fn deinit(self: Timezone) void {
     if (self.allocator) |allocator| {
         allocator.free(self.name);
     }
 }
 
 /// Renders the timezone in ISO-8601 format, eg. +04:00
-pub fn write(self: Self, writer: anytype) !void {
+pub fn write(self: Timezone, writer: anytype) !void {
     const sign = if (self.offset_minutes < 0) "-" else "+";
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
@@ -58,7 +58,7 @@ pub fn write(self: Self, writer: anytype) !void {
 }
 
 /// Prints the timezone in ISO-8601 format into `buf`, eg. +04:00
-pub fn bufPrint(self: Self, buf: []u8) ![]u8 {
+pub fn bufPrint(self: Timezone, buf: []u8) ![]u8 {
     var fbs = std.io.fixedBufferStream(buf);
     self.write(fbs.writer().any()) catch |err| switch (err) {
         error.NoSpaceLeft => return error.NoSpaceLeft,
@@ -68,7 +68,7 @@ pub fn bufPrint(self: Self, buf: []u8) ![]u8 {
 }
 
 /// Returns a buffer allocated using `allocator` filled with the timezone in ISO-8601 format, eg. +04:00
-pub fn allocPrint(self: Self, allocator: std.mem.Allocator) ![]const u8 {
+pub fn allocPrint(self: Timezone, allocator: std.mem.Allocator) ![]const u8 {
     const sign = if (self.offset_minutes < 0) "-" else "+";
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
