@@ -1,4 +1,4 @@
-# zig-tempus
+# zig-epoch
 
 Yet another date and time library for Zig.
 
@@ -10,9 +10,9 @@ Docs can be generated using `zig build docs`. It'll be hosted on Github Pages at
 
 ```zig
 const std = @import("std");
-const tempus = @import("tempus");
-const Date = tempus.Date;
-const Timezone = tempus.Timezone;
+const epoch = @import("epoch");
+const Date = epoch.Date;
+const Timezone = epoch.Timezone;
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
@@ -45,7 +45,7 @@ pub fn main() !void {
     // The UNIX timestamp is: 1721306903828
 
     // Convert from a UNIX timestamp, optionally with a target timezone.
-    const epoch = tempus.Date.fromTimestamp(0, Timezone.GMT);
+    const epoch = Date.fromTimestamp(0, Timezone.GMT);
     // Print using the buffer or writer API
     var epoch_buffer: [80]u8 = undefined;
     std.debug.print("The epoch date is: {s}\n", .{try epoch.bufPrintISO8601(&epoch_buffer)});
