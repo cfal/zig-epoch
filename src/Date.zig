@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 
 const Timezone = @import("./Timezone.zig");
 
@@ -232,4 +233,38 @@ pub fn allocPrintLocale(self: Date, allocator: std.mem.Allocator) ![]u8 {
 /// Returns a buffer allocated using `allocator` filled with the date in ISO-8601 format, eg. 2023-10-05
 pub fn allocPrintDateISO8601(self: Date, allocator: std.mem.Allocator) ![]u8 {
     return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ self.year, self.month, self.day });
+}
+
+test "fromTimestamp" {
+    const d = Date.fromTimestamp(1721300611846, null);
+    try testing.expectEqual(d.year, 2024);
+    try testing.expectEqual(d.month, 7);
+    try testing.expectEqual(d.day, 18);
+    try testing.expectEqual(d.hour, 11);
+    try testing.expectEqual(d.minutes, 3);
+    try testing.expectEqual(d.seconds, 31);
+    try testing.expectEqual(d.milliseconds, 846);
+}
+
+test "fromTimestamp with timezone" {
+    const d = Date.fromTimestamp(1721301768079, Timezone{ .name = "-0800", .offset_minutes = -8 * 60 });
+    try testing.expectEqual(d.year, 2024);
+    try testing.expectEqual(d.month, 7);
+    try testing.expectEqual(d.day, 18);
+    try testing.expectEqual(d.hour, 3);
+    try testing.expectEqual(d.minutes, 22);
+    try testing.expectEqual(d.seconds, 48);
+    try testing.expectEqual(d.milliseconds, 79);
+}
+
+test "fromTimestamp toTimestamp" {
+    const timestamp = 1721301190892;
+    try testing.expectEqual(timestamp, Date.fromTimestamp(timestamp, null).toTimestamp());
+}
+
+test "allocPrintJava" {
+    const d = Date.fromTimestamp(1721301190892, null);
+    const s = try d.allocPrintJava(testing.allocator);
+    defer testing.allocator.free(s);
+    try testing.expectEqualSlices(u8, s, "Thu Jul 18 11:13:10 AM GMT 2024");
 }
