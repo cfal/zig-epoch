@@ -93,7 +93,7 @@ pub fn write(self: Timezone, writer: anytype) !void {
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
     const minutes = abs_offset_minutes % 60;
-    return std.fmt.format(writer, "{}{:02}:{:02}", .{ sign, hours, minutes });
+    return std.fmt.format(writer, "{s}{:02}:{:02}", .{ sign, hours, minutes });
 }
 
 /// Prints the timezone in ISO-8601 format into `buf`, eg. +04:00
@@ -112,5 +112,57 @@ pub fn allocPrint(self: Timezone, allocator: std.mem.Allocator) ![]const u8 {
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
     const minutes = abs_offset_minutes % 60;
-    return std.fmt.allocPrint(allocator, "{}{:02}:{:02}", .{ sign, hours, minutes });
+    return std.fmt.allocPrint(allocator, "{s}{:02}:{:02}", .{ sign, hours, minutes });
+}
+
+test "fromString negative" {
+    for ([_][]const u8{ "-04:33", "-4:33", "-0433", "-433" }) |s| {
+        const name = try testing.allocator.alloc(u8, 4);
+        @memcpy(name, "ABCD");
+        const t = try Timezone.fromString(s, name, testing.allocator);
+        defer t.deinit();
+        try testing.expectEqual(-4 * 60 - 33, t.offset_minutes);
+        try testing.expectEqual(name, t.name);
+    }
+}
+
+test "fromString negative double-digit" {
+    for ([_][]const u8{ "-11:33", "-1133" }) |s| {
+        const name = try testing.allocator.alloc(u8, 4);
+        @memcpy(name, "ABCD");
+        const t = try Timezone.fromString(s, name, testing.allocator);
+        defer t.deinit();
+        try testing.expectEqual(-11 * 60 - 33, t.offset_minutes);
+        try testing.expectEqual(name, t.name);
+    }
+}
+
+test "fromString positive" {
+    for ([_][]const u8{ "+08:55", "+8:55", "+0855", "+855", "08:55", "8:55", "0855", "855" }) |s| {
+        const name = try testing.allocator.alloc(u8, 4);
+        @memcpy(name, "EFGH");
+        const t = try Timezone.fromString(s, name, testing.allocator);
+        defer t.deinit();
+        try testing.expectEqual(8 * 60 + 55, t.offset_minutes);
+        try testing.expectEqual(name, t.name);
+    }
+}
+
+test "fromString positive double-digit" {
+    for ([_][]const u8{ "+11:55", "+1155", "11:55", "1155" }) |s| {
+        const name = try testing.allocator.alloc(u8, 4);
+        @memcpy(name, "EFGH");
+        const t = try Timezone.fromString(s, name, testing.allocator);
+        defer t.deinit();
+        try testing.expectEqual(11 * 60 + 55, t.offset_minutes);
+        try testing.expectEqual(name, t.name);
+    }
+}
+
+test "allocPrint" {
+    const expected = "+11:22";
+    const t = try Timezone.fromString(expected, null, null);
+    const actual = try t.allocPrint(testing.allocator);
+    defer testing.allocator.free(actual);
+    try testing.expectEqualSlices(u8, expected, actual);
 }
