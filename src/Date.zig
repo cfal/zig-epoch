@@ -20,13 +20,17 @@ const day_of_week_abbrev_names = [_][]const u8{ "Sun", "Mon", "Tue", "Wed", "Thu
 const month_abbrev_names = [_][]const u8{ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
 /// Creates a Date from a Unix timestamp in seconds since midnight Jan 1 1970.
-pub fn fromTimestamp(timestamp: u64, timezone: Timezone) Date {
-    const offset_ms = timezone.offset_minutes * 60 * 1_000;
+pub fn fromTimestamp(timestamp: u64, timezone: ?Timezone) Date {
     var offset_timestamp: u64 = undefined;
-    if (offset_ms > 0) {
-        offset_timestamp = timestamp + @as(u64, @intCast(offset_ms));
+    if (timezone) |t| {
+        const offset_ms = t.offset_minutes * 60 * 1_000;
+        if (offset_ms > 0) {
+            offset_timestamp = timestamp + @as(u64, @intCast(offset_ms));
+        } else {
+            offset_timestamp = timestamp - @as(u64, @intCast(offset_ms * -1));
+        }
     } else {
-        offset_timestamp = timestamp - @as(u64, @intCast(offset_ms * -1));
+        offset_timestamp = timestamp;
     }
 
     const ms_per_sec: u64 = 1000;
@@ -78,7 +82,7 @@ pub fn fromTimestamp(timestamp: u64, timezone: Timezone) Date {
         .seconds = seconds,
         .milliseconds = milliseconds,
         .day_of_week = day_of_week,
-        .timezone = timezone,
+        .timezone = timezone orelse Timezone.UTC,
     };
 }
 
@@ -114,13 +118,8 @@ pub fn toTimestamp(self: Date) u64 {
     return timestamp;
 }
 
-/// Creates a Date representing the current date and time in UTC timezone.
-pub fn now() Date {
-    return Date.nowWithTimezone(Timezone.UTC);
-}
-
 /// Creates a Date representing the current date and time in the provided timezone.
-pub fn nowWithTimezone(timezone: Timezone) Date {
+pub fn now(timezone: ?Timezone) Date {
     const current_ms: u64 = @intCast(std.time.milliTimestamp());
     return Date.fromTimestamp(current_ms, timezone);
 }
@@ -234,5 +233,3 @@ pub fn allocPrintLocale(self: Date, allocator: std.mem.Allocator) ![]u8 {
 pub fn allocPrintDateISO8601(self: Date, allocator: std.mem.Allocator) ![]u8 {
     return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ self.year, self.month, self.day });
 }
-
-test {}
