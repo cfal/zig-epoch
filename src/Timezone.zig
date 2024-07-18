@@ -4,7 +4,7 @@ const Timezone = @This();
 
 name: []const u8,
 offset_minutes: i64,
-allocator: ?std.mem.Allocator = undefined,
+allocator: ?std.mem.Allocator = null,
 
 pub const GMT = Timezone{ .name = "GMT", .offset_minutes = 0 };
 
