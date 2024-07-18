@@ -6,7 +6,7 @@ name: []const u8,
 offset_minutes: i64,
 allocator: ?std.mem.Allocator = undefined,
 
-pub const UTC = Timezone{ .name = "UTC", .offset_minutes = 0 };
+pub const GMT = Timezone{ .name = "GMT", .offset_minutes = 0 };
 
 /// Fetches the system timezone on Linux using the `date` binary.
 pub fn fetch(allocator: std.mem.Allocator) !Timezone {

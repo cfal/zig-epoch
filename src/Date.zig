@@ -82,7 +82,7 @@ pub fn fromTimestamp(timestamp: u64, timezone: ?Timezone) Date {
         .seconds = seconds,
         .milliseconds = milliseconds,
         .day_of_week = day_of_week,
-        .timezone = timezone orelse Timezone.UTC,
+        .timezone = timezone orelse Timezone.GMT,
     };
 }
 
