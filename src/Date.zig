@@ -4,7 +4,6 @@ const Timezone = @import("./Timezone.zig");
 
 const Date = @This();
 
-timestamp: u64,
 timezone: Timezone,
 
 // timezone-dependent fields
@@ -71,7 +70,6 @@ pub fn fromTimestamp(timestamp: u64, timezone: Timezone) Date {
     const day_of_week: u8 = @intCast((days_since_epoch + 4) % 7); // 1970-01-01 is a Thursday, which is the 4th day of the week
 
     return Date{
-        .timestamp = timestamp,
         .year = year,
         .month = month + 1,
         .day = day_of_month + 1,
@@ -82,6 +80,38 @@ pub fn fromTimestamp(timestamp: u64, timezone: Timezone) Date {
         .day_of_week = day_of_week,
         .timezone = timezone,
     };
+}
+
+/// Creates a Unix timestamp in seconds since midnight Jan 1 1970.
+pub fn toTimestamp(self: Date) u64 {
+    const days_in_month = [_]u8{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    const year = self.year;
+    const month = self.month;
+    const day = self.day;
+
+    var days: u64 = (year - 1970) * 365 + (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
+    var i: usize = 1;
+    while (i < month) : (i += 1) {
+        days += days_in_month[i - 1];
+    }
+    if (month > 2 and ((year % 4 == 0 and year % 100 != 0) or year % 400 == 0)) {
+        days += 1;
+    }
+    days += day - 1;
+
+    var timestamp: u64 = days * 86400 + self.hour * 3600 + self.minutes * 60 + self.seconds;
+
+    timestamp = timestamp * 1000 + self.milliseconds;
+
+    // Adjust for timezone offset
+    const offset_ms = self.timezone.offset_minutes * 60 * 1000;
+    if (offset_ms > 0) {
+        timestamp -= @intCast(offset_ms);
+    } else {
+        timestamp += @intCast(-offset_ms);
+    }
+
+    return timestamp;
 }
 
 /// Creates a Date representing the current date and time in UTC timezone.
