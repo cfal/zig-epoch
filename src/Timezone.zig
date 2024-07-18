@@ -86,7 +86,7 @@ pub fn write(self: Timezone, writer: anytype) !void {
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
     const minutes = abs_offset_minutes % 60;
-    return std.fmt.format(writer, "{s}{:02}:{:02}", .{ sign, hours, minutes });
+    return std.fmt.format(writer, "{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
 }
 
 /// Prints the timezone in ISO-8601 format into `buf`, eg. +04:00
@@ -105,7 +105,7 @@ pub fn allocPrint(self: Timezone, allocator: std.mem.Allocator) ![]const u8 {
     const abs_offset_minutes: u16 = @intCast(@abs(self.offset_minutes));
     const hours = abs_offset_minutes / 60;
     const minutes = abs_offset_minutes % 60;
-    return std.fmt.allocPrint(allocator, "{s}{:02}:{:02}", .{ sign, hours, minutes });
+    return std.fmt.allocPrint(allocator, "{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
 }
 
 test "fetch" {
@@ -160,6 +160,14 @@ test "fromString positive double-digit" {
 }
 
 test "allocPrint" {
+    const expected = "+08:02";
+    const t = try Timezone.fromString(expected, null, null);
+    const actual = try t.allocPrint(testing.allocator);
+    defer testing.allocator.free(actual);
+    try testing.expectEqualSlices(u8, expected, actual);
+}
+
+test "allocPrint double-digit" {
     const expected = "+11:22";
     const t = try Timezone.fromString(expected, null, null);
     const actual = try t.allocPrint(testing.allocator);
