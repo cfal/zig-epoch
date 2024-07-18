@@ -9,39 +9,6 @@ allocator: ?std.mem.Allocator = null,
 
 pub const GMT = Timezone{ .name = "GMT", .offset_minutes = 0 };
 
-/// Fetches the system timezone on Linux using the `date` binary.
-pub fn fetch(allocator: std.mem.Allocator) !Timezone {
-    const result = try std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = &[_][]const u8{ "date", "+%z %Z" },
-    });
-    defer allocator.free(result.stderr);
-    defer allocator.free(result.stdout);
-
-    if (result.term.Exited != 0) {
-        return error.DateCommandFailed;
-    }
-
-    const output = std.mem.trimRight(u8, result.stdout, "\n");
-    var iter = std.mem.splitSequence(u8, output, " ");
-    const offset_str = iter.next() orelse return error.InvalidOutput;
-    const timezone_str = iter.next() orelse return error.InvalidOutput;
-
-    if (offset_str.len != 5) {
-        return error.InvalidOffsetFormat;
-    }
-
-    const sign: i16 = if (offset_str[0] == '-') -1 else 1;
-    const hours = try std.fmt.parseInt(i16, offset_str[1..3], 10);
-    const minutes = try std.fmt.parseInt(i16, offset_str[3..5], 10);
-
-    return Timezone{
-        .allocator = allocator,
-        .name = try allocator.dupe(u8, timezone_str),
-        .offset_minutes = (hours * 60 + minutes) * sign,
-    };
-}
-
 /// Parses a string representation of a timezone offset into a Timezone struct.
 /// If `name` is not specified, then `str` is used as the timezone name.
 /// If `allocator is specified, `Timezone.deinit()` will free the string used as the name.
@@ -81,6 +48,31 @@ pub fn fromString(str: []const u8, name: ?[]const u8, allocator: ?std.mem.Alloca
     };
 }
 
+/// Fetches the system timezone on Linux using the `date` binary.
+pub fn fetch(allocator: std.mem.Allocator) !Timezone {
+    const result = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &[_][]const u8{ "date", "+%z %Z" },
+    });
+    defer allocator.free(result.stderr);
+    defer allocator.free(result.stdout);
+
+    if (result.term.Exited != 0) {
+        return error.DateCommandFailed;
+    }
+
+    const output = std.mem.trimRight(u8, result.stdout, " \r\n");
+    var iter = std.mem.splitSequence(u8, output, " ");
+    const offset_str = iter.next() orelse return error.InvalidOutput;
+    const timezone_str = iter.next() orelse return error.InvalidOutput;
+
+    if (offset_str.len != 5) {
+        return error.InvalidOffsetFormat;
+    }
+
+    return fromString(offset_str, try allocator.dupe(u8, timezone_str), allocator);
+}
+
 /// Deallocates the timezone when initialized with an allocator.
 pub fn deinit(self: Timezone) void {
     if (self.allocator) |allocator| {
@@ -114,6 +106,13 @@ pub fn allocPrint(self: Timezone, allocator: std.mem.Allocator) ![]const u8 {
     const hours = abs_offset_minutes / 60;
     const minutes = abs_offset_minutes % 60;
     return std.fmt.allocPrint(allocator, "{s}{:02}:{:02}", .{ sign, hours, minutes });
+}
+
+test "fetch" {
+    if (@import("builtin").os.tag == .linux) {
+        const t = try Timezone.fetch(testing.allocator);
+        defer t.deinit();
+    }
 }
 
 test "fromString negative" {
