@@ -262,6 +262,12 @@ test "fromTimestamp toTimestamp" {
     try testing.expectEqual(timestamp, Date.fromTimestamp(timestamp, null).toTimestamp());
 }
 
+test "fromTimestamp toTimestamp with timezone" {
+    const timestamp = 1721301190892;
+    const timezone = try Timezone.fromString("-04:00", null, null);
+    try testing.expectEqual(timestamp, Date.fromTimestamp(timestamp, timezone).toTimestamp());
+}
+
 test "allocPrintJava" {
     const d = Date.fromTimestamp(1721301190892, null);
     const s = try d.allocPrintJava(testing.allocator);
