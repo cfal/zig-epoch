@@ -41,6 +41,45 @@ pub fn fetch(allocator: std.mem.Allocator) !Timezone {
     };
 }
 
+/// Parses a string representation of a timezone offset into a Timezone struct.
+/// If `name` is not specified, then `str` is used as the timezone name.
+/// If `allocator is specified, `Timezone.deinit()` will free the string used as the name.
+/// Supported formats: +/-HHMM, +/-HH:MM, +/-H:MM. Defaults to positive (+) offset if
+/// not prefixed by a sign.
+pub fn fromString(str: []const u8, name: ?[]const u8, allocator: ?std.mem.Allocator) !Timezone {
+    if (str.len < 3 or str.len > 6) return error.InvalidFormat;
+
+    var sign: i8 = 1;
+    var start_index: usize = 0;
+
+    if (str[0] == '-') {
+        sign = -1;
+        start_index = 1;
+    } else if (str[0] == '+') {
+        start_index = 1;
+    }
+
+    var hours: u8 = undefined;
+    var minutes: u8 = undefined;
+
+    if (std.mem.indexOf(u8, str, ":")) |colon_index| {
+        hours = try std.fmt.parseInt(u8, str[start_index..colon_index], 10);
+        minutes = try std.fmt.parseInt(u8, str[colon_index + 1 ..], 10);
+    } else {
+        const parsed = try std.fmt.parseInt(u16, str[start_index..], 10);
+        hours = @intCast(parsed / 100);
+        minutes = @intCast(parsed % 100);
+    }
+
+    if (hours > 23 or minutes > 59) return error.InvalidTime;
+
+    return Timezone{
+        .name = name orelse str,
+        .offset_minutes = @as(i64, @intCast(sign)) * (@as(i64, @intCast(hours)) * 60 + @as(i64, @intCast(minutes))),
+        .allocator = allocator,
+    };
+}
+
 /// Deallocates the timezone when initialized with an allocator.
 pub fn deinit(self: Timezone) void {
     if (self.allocator) |allocator| {
